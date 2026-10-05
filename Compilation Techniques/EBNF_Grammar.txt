@@ -1,0 +1,138 @@
+══════════════════════════════════════════════════════════════════════════════
+ EBNF GRAMMAR
+ Extended Backus-Naur Form for the custom scripting language.
+══════════════════════════════════════════════════════════════════════════════
+
+NOTATION GUIDE
+──────────────
+  =         defines a rule
+  |         alternation (OR)
+  { }       repetition — zero or more
+  [ ]       optional — zero or one
+  ( )       grouping
+  " "       literal terminal / keyword
+  UPPER     token produced by the Lexer (e.g. INT, IDENTIFIER)
+  ;         end of rule
+  (* *)     comment
+
+
+── PROGRAM ───────────────────────────────────────────────────────────────────
+
+  program         = { statement } EOF ;
+
+
+── STATEMENTS ────────────────────────────────────────────────────────────────
+
+  statement       = var_decl
+                  | if_stmt
+                  | while_stmt
+                  | for_stmt
+                  | func_def
+                  | return_stmt
+                  | expr_stmt
+                  ;
+
+  var_decl        = "var" IDENTIFIER "=" expr NEWLINE ;
+
+  if_stmt         = "if" expr block
+                    { "elif" expr block }
+                    [ "else" block ]
+                  ;
+
+  while_stmt      = "while" expr block ;
+
+  for_stmt        = "for" IDENTIFIER "=" expr "to" expr
+                    [ "step" expr ]
+                    block
+                  ;
+
+  func_def        = "func" IDENTIFIER "(" [ params ] ")" block ;
+
+  return_stmt     = "return" [ expr ] NEWLINE ;
+
+  expr_stmt       = expr NEWLINE ;
+
+
+── BLOCK ─────────────────────────────────────────────────────────────────────
+
+  block           = "{" { statement } "}" ;
+
+
+── PARAMETERS & ARGUMENTS ───────────────────────────────────────────────────
+
+  params          = IDENTIFIER { "," IDENTIFIER } ;
+
+  args            = expr { "," expr } ;
+
+
+── EXPRESSIONS (ordered lowest to highest precedence) ───────────────────────
+
+  expr            = assign_expr ;
+
+  assign_expr     = IDENTIFIER "=" expr      (* re-assignment *)
+                  | or_expr
+                  ;
+
+  or_expr         = and_expr { "or" and_expr } ;
+
+  and_expr        = not_expr { "and" not_expr } ;
+
+  not_expr        = "not" not_expr            (* unary logical NOT *)
+                  | comparison
+                  ;
+
+  comparison      = arithmetic
+                    { ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) arithmetic }
+                  ;
+
+  arithmetic      = term { ( "+" | "-" ) term } ;
+
+  term            = factor { ( "*" | "/" | "%" ) factor } ;
+
+  factor          = ( "+" | "-" ) factor      (* unary plus / minus *)
+                  | power
+                  ;
+
+  power           = call [ "**" factor ] ;    (* right-associative *)
+
+  call            = atom
+                    { "(" [ args ] ")"        (* function call  *)
+                    | "[" expr "]"            (* index access   *)
+                    | "." IDENTIFIER          (* member access  *)
+                    }
+                  ;
+
+  atom            = INT
+                  | FLOAT
+                  | STRING
+                  | "true"
+                  | "false"
+                  | "null"
+                  | IDENTIFIER
+                  | "(" expr ")"              (* grouped expression *)
+                  | list_expr
+                  ;
+
+
+── LITERALS ─────────────────────────────────────────────────────────────────
+
+  list_expr       = "[" [ expr { "," expr } ] "]" ;
+
+
+── PRECEDENCE TABLE (lowest to highest) ─────────────────────────────────────
+
+  Level  |  Operator(s)                     |  Associativity
+  -------|-----------------------------------|---------------
+  1      |  = (assignment)                  |  Right
+  2      |  or                              |  Left
+  3      |  and                             |  Left
+  4      |  not                             |  Right (unary)
+  5      |  == != < > <= >=                 |  Left
+  6      |  + -                             |  Left
+  7      |  * / %                           |  Left
+  8      |  unary + -                       |  Right
+  9      |  ** (power)                      |  Right
+  10     |  () [] . (call / index / member) |  Left
+
+══════════════════════════════════════════════════════════════════════════════
+
