@@ -1,0 +1,146 @@
+══════════════════════════════════════════════════════════════════════════════
+ LL(1) GRAMMAR (CFG)
+ Context-free grammar for the custom scripting language.
+ Every choice can be made by looking at the next token only.
+══════════════════════════════════════════════════════════════════════════════
+
+NOTATION GUIDE
+──────────────
+  →         "is made of"
+  |         OR (another choice)
+  ε         nothing (the rule may be empty)
+  " "       exact keyword / symbol
+  UPPER     token produced by the Lexer (e.g. INT, IDENTIFIER)
+  lower     non-terminal (a rule defined below)
+
+  Start symbol: program
+
+
+── PROGRAM ───────────────────────────────────────────────────────────────────
+
+  program      → stmts EOF
+
+  stmts        → stmt stmts
+               | NEWLINE stmts            (* blank lines are allowed *)
+               | ε
+
+
+── STATEMENTS ────────────────────────────────────────────────────────────────
+
+  stmt         → var_decl
+               | if_stmt
+               | while_stmt
+               | for_stmt
+               | func_def
+               | return_stmt
+               | expr_stmt
+
+  var_decl     → "var" IDENTIFIER "=" expr NEWLINE
+
+  if_stmt      → "if" expr block elif_part else_part
+  elif_part    → "elif" expr block elif_part | ε
+  else_part    → "else" block | ε
+
+  while_stmt   → "while" expr block
+
+  for_stmt     → "for" IDENTIFIER "=" expr "to" expr step_part block
+  step_part    → "step" expr | ε
+
+  func_def     → "func" IDENTIFIER "(" params ")" block
+  params       → IDENTIFIER more_params | ε
+  more_params  → "," IDENTIFIER more_params | ε
+
+  return_stmt  → "return" return_value
+  return_value → expr NEWLINE | NEWLINE
+
+  expr_stmt    → expr NEWLINE
+
+  block        → "{" stmts "}"
+
+
+── EXPRESSIONS (lowest to highest precedence) ───────────────────────────────
+
+  expr         → or_expr assign_tail
+  assign_tail  → "=" expr | ε             (* left side must be a variable *)
+
+  or_expr      → and_expr or_tail
+  or_tail      → "or" and_expr or_tail | ε
+
+  and_expr     → not_expr and_tail
+  and_tail     → "and" not_expr and_tail | ε
+
+  not_expr     → "not" not_expr | comparison
+
+  comparison   → arith comp_tail
+  comp_tail    → comp_op arith comp_tail | ε
+  comp_op      → "==" | "!=" | "<" | ">" | "<=" | ">="
+
+  arith        → term arith_tail
+  arith_tail   → add_op term arith_tail | ε
+  add_op       → "+" | "-"
+
+  term         → factor term_tail
+  term_tail    → mul_op factor term_tail | ε
+  mul_op       → "*" | "/" | "%"
+
+  factor       → "+" factor | "-" factor | power
+
+  power        → call power_tail
+  power_tail   → "**" factor | ε
+
+  call         → atom call_tail
+  call_tail    → "(" args ")" call_tail   (* function call *)
+               | "[" expr "]" call_tail   (* index access  *)
+               | "." IDENTIFIER call_tail (* member access *)
+               | ε
+  args         → expr more_args | ε
+  more_args    → "," expr more_args | ε
+
+  atom         → INT | FLOAT | STRING
+               | "true" | "false" | "null"
+               | IDENTIFIER
+               | "(" expr ")"
+               | "[" args "]"             (* list literal *)
+
+
+── NOTES ─────────────────────────────────────────────────────────────────────
+
+  1. Simple statements (var, return, expressions) end with a NEWLINE,
+     so the last line of a file needs a newline after it.
+
+  2. Blocks must be written over several lines:
+         if x > 5 {
+             print(x)
+         }
+
+  3. "elif" and "else" must be on the same line as the "}" before them:
+         if x > 5 {
+             ...
+         } else {
+             ...
+         }
+
+  4. Assignment is parsed as  expr "=" expr . The parser then checks that
+     the left side is a plain variable, so  x = 5  is fine but  1 + 2 = 5
+     is an error.
+
+  5. Each  X_tail / more_X  rule repeats itself. In the parser code it
+     becomes a simple while loop.
+
+
+── PRECEDENCE TABLE (lowest to highest) ─────────────────────────────────────
+
+  Level  |  Operator(s)                     |  Associativity
+  -------|-----------------------------------|---------------
+  1      |  = (assignment)                  |  Right
+  2      |  or                              |  Left
+  3      |  and                             |  Left
+  4      |  not                             |  Right (unary)
+  5      |  == != < > <= >=                 |  Left
+  6      |  + -                             |  Left
+  7      |  * / %                           |  Left
+  8      |  unary + -                       |  Right
+  9      |  ** (power)                      |  Right
+  10     |  () [] . (call / index / member) |  Left
+
+══════════════════════════════════════════════════════════════════════════════

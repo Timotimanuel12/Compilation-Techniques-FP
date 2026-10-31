@@ -66,7 +66,8 @@ TT_EOF     = 'EOF'
 
 
 #  Errors
-class Error:
+# Inheriting from Exception lets us 'raise' errors (the Parser uses this)
+class Error(Exception):
     def __init__(self, pos_start, pos_end, error_name, details):
         self.pos_start  = pos_start
         self.pos_end    = pos_end
@@ -168,8 +169,8 @@ class Lexer:
         while self.current_char is not None:
             ch = self.current_char
 
-            # Skip whitespace (not newlines) 
-            if ch in ' \t':
+            # Skip whitespace (not newlines). '\r' comes from Windows line endings (\r\n)
+            if ch in ' \t\r':
                 self.advance()
 
             # Newline → statement boundary 
