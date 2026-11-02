@@ -7,8 +7,8 @@
 #  STEP 1 — AST NODE CLASSES
 #
 #  Each class represents one "shape" of node that can appear in the tree.
-#  The parser will create instances of these as it reads tokens.
-#  The interpreter (a future step) will walk the tree and evaluate them.
+#  The parser creates instances of these as it reads tokens.
+#  The interpreter (Interpreter.py) walks the tree and runs them.
 # ──────────────────────────────────────────────────────────────────────────────
 
 

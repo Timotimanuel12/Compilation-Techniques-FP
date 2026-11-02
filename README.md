@@ -1,14 +1,17 @@
 # CompTech: A Small Scripting Language
 
 This is a project for the **Compilation Techniques** course.
-It is a small programming language, written in Python, together with the tools that read it.
+It is a small programming language, written in Python, together with the tools that read and run it.
 
-Right now the project can:
+The project has three parts:
 
-1. **Read** code written in the language and split it into words (the **Lexer**).
-2. **Understand** the structure of the code and build a tree from it (the **Parser**).
+1. The **Lexer** reads the code and splits it into words (tokens).
+2. The **Parser** understands the structure of the code and builds a tree from it.
+3. The **Interpreter** walks through the tree and runs the program.
 
-Running the code (the **Interpreter**) is not built yet.
+> **Work in progress:** the lexer and parser are finished. The interpreter is being built step by step,
+> and so far it can only do **maths** (`1 + 2 * 3`, `10 / 4`, `-5`, `2 ** 10`).
+> The rest of this README describes the language as it will be when the interpreter is finished.
 
 
 ## What the language looks like
@@ -29,8 +32,8 @@ if x > 5 and not false {
     x = x - 1
 }
 
-for i = 1 to 10 step 2 {
-    print(i)
+for i = 0 to 10 step 2 {
+    print(i)            # 0 2 4 6 8
 }
 
 while x > 0 {
@@ -38,7 +41,8 @@ while x > 0 {
 }
 
 var items = [1, 2, 3]
-print(items[0])
+append(items, 4)
+print(items[0], len(items))
 ```
 
 The language has:
@@ -49,8 +53,23 @@ The language has:
 - **Comparisons:** `==  !=  <  >  <=  >=`
 - **Logic:** `and`, `or`, `not`
 - **Control flow:** `if` / `elif` / `else`, `while`, `for ... to ... step`
-- **Functions:** `func name(params) { ... }` and `return`
+- **Functions:** `func name(params) { ... }` and `return`. Functions can call themselves (recursion) and can be passed to other functions.
+- **Lists:** `items[0]` gets the first item, `items[-1]` gets the last
 - **Comments:** everything after `#` on a line is ignored
+
+
+### Built-in functions
+
+| Function | Example | Result |
+|---|---|---|
+| `print(...)` | `print("Age:", 20)` | shows `Age: 20` |
+| `input(text)` | `input("Name? ")` | the text the user types |
+| `len(x)` | `len([1, 2, 3])` | `3` |
+| `str(x)` | `str(42)` | `"42"` |
+| `int(x)` | `int("42")` | `42` |
+| `float(x)` | `float("1.5")` | `1.5` |
+| `append(list, x)` | `append(items, 4)` | adds `4` to the end of `items` |
+| `random(a, b)` | `random(1, 6)` | a whole number from 1 to 6 |
 
 
 ### Rules to remember
@@ -59,14 +78,17 @@ The language has:
 - Blocks `{ }` are written over **several lines**. This does not work:
   `if x { print(x) }`
 - `elif` and `else` go on the **same line** as the `}` before them: `} else {`
-- The file must **end with an empty line**.
+- `for i = 0 to 5` counts **0, 1, 2, 3, 4**. The end number is not included (like Python's `range`).
+- Use `var` the first time you create a variable. Writing `x = 5` without `var x` first gives an error. This catches typos in variable names.
+- Variables made inside a function stay inside that function.
+- In `if` and `while`, the values `false`, `null`, `0`, `""` and `[]` count as false.
 
 
 ## How it works
 
 ```
- source code  ──►  Lexer  ──►  tokens  ──►  Parser  ──►  tree
-   (text)        Lexer.py                 Parser.py    (Nodes.py)
+ source code  ──►  Lexer  ──►  tokens  ──►  Parser  ──►  tree  ──►  Interpreter  ──►  result
+   (text)        Lexer.py                 Parser.py   (Nodes.py)   Interpreter.py
 ```
 
 **1. Lexer:** reads the code one character at a time and groups the characters into **tokens**.
@@ -91,6 +113,13 @@ The `*` is lower in the tree, so it is worked out first.
 The parser follows the grammar in `LL1_Grammar.txt`. There is one Python function for each grammar rule, with the same name.
 The grammar is **LL(1)**: the parser can always decide what to do by looking at just the next token.
 
+**3. Interpreter:** walks through the tree and runs it. There is one Python function for each kind of node.
+For example, `visit_NumberNode` handles numbers and `visit_IfNode` handles `if` statements.
+For the tree above, it first works out `2 * 3 = 6`, then `1 + 6 = 7`.
+
+Values in the language are stored as normal Python values (`10` is a Python `int`, `[1, 2]` is a Python `list`).
+Variables are kept in **scopes**: one global scope for the whole program, plus a new scope for every function call.
+
 
 ## Files
 
@@ -98,9 +127,12 @@ All the code is in the `Compilation Techniques` folder.
 
 | File | What it does |
 |---|---|
+| `main.py` | Start here. Runs a program file, or opens the interactive shell. |
 | `Lexer.py` | Turns text into tokens. Also has the `Error` and `Position` classes. |
 | `Parser.py` | Turns tokens into a tree. |
 | `Nodes.py` | The pieces of the tree (`NumberNode`, `IfNode`, `BlockNode`, ...). |
+| `Interpreter.py` | Runs the tree. *(In progress: maths only so far.)* |
+| `examples/` | Example programs: `basics.txt`, `functions.txt`, `guessing_game.txt`. *(They will run once the interpreter is finished.)* |
 | `LL1_Grammar.txt` | The grammar of the language, written as an LL(1) context-free grammar. The parser follows this file. |
 | `EBNF_Grammar.txt` | An earlier version of the grammar in EBNF form. It does not yet match `LL1_Grammar.txt` exactly. |
 
@@ -109,37 +141,71 @@ All the code is in the `Compilation Techniques` folder.
 
 You need **Python 3** (tested with Python 3.12). No extra packages are needed.
 
+**Run a program file:**
+
 ```
 cd "Compilation Techniques"
+python main.py examples/basics.txt
+```
+
+*(The example programs need the finished interpreter. Once it is done, this prints:)*
+
+```
+Hello, World!
+a + b  = 9
+a / b  = 3.5
+...
+```
+
+**Test the interpreter** (runs a few calculations):
+
+```
+python Interpreter.py
+```
+
+**Open the interactive shell** and type code line by line:
+
+```
+python main.py
+```
+
+Right now the shell works as a calculator:
+
+```
+>>> 1 + 2 * 3
+7
+>>> exit
+```
+
+When the interpreter is finished, it will run everything:
+
+```
+>>> var x = 5
+5
+>>> func square(n) {
+...     return n * n
+... }
+>>> square(x)
+25
+>>> exit
+```
+
+**See the tree** the parser builds (without running it):
+
+```
 python Parser.py
 ```
 
-This parses a small example program and prints its tree:
 
-```
-(var IDENTIFIER:x = INT:10)
-(func IDENTIFIER:add(IDENTIFIER:a, IDENTIFIER:b) { (return (IDENTIFIER:a PLUS IDENTIFIER:b)) })
-(if ((IDENTIFIER:x GT INT:5) KEYWORD:and (KEYWORD:not KEYWORD:false)) then { ... } else { ... })
-```
+## Errors
 
-To parse your own code from Python:
+When something is wrong, you get a message with the line number. There are three kinds:
 
-```python
-from Parser import run
-
-tree, error = run('<my code>', 'var x = 1 + 2\n')
-if error:
-    print(error.as_string())
-else:
-    print(tree)
-```
-
-If the code has a mistake, you get an error with the line number, for example:
-
-```
-Invalid Syntax: Expected ')'
-File <my code>, line 1
-```
+| Kind | When | Example |
+|---|---|---|
+| `Illegal Character` | The lexer finds a character it does not know | `print($)` |
+| `Invalid Syntax` | The code does not follow the grammar | `print(1, 2` → `Expected ')'` |
+| `Runtime Error` | Something goes wrong while running | `print(1 / 0)` → `Division by zero` |
 
 
 ## Progress
@@ -147,4 +213,12 @@ File <my code>, line 1
 - [x] Grammar (EBNF and LL(1))
 - [x] Lexer
 - [x] Parser
-- [ ] Interpreter (to actually run the code)
+- [x] Interactive shell (`main.py`)
+- [ ] Interpreter, built in parts:
+  - [x] Part 1: maths (`+ - * / % **`, negative numbers)
+  - [ ] Part 2: variables
+  - [ ] Part 3: text, true/false/null, lists, comparisons, `and` / `or` / `not`
+  - [ ] Part 4: `if`, `while`, `for`
+  - [ ] Part 5: functions and built-in functions (`print`, `input`, ...)
+- [ ] Example programs running
+- [ ] Code editor window (`tkinter`) for the demo

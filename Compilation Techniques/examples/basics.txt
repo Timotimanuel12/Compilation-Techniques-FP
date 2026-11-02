@@ -1,0 +1,36 @@
+# Basics: variables, maths, text, lists, if and loops
+
+var name = "World"
+print("Hello,", name + "!")
+
+var a = 7
+var b = 2
+print("a + b  =", a + b)
+print("a / b  =", a / b)
+print("a % b  =", a % b)
+print("a ** b =", a ** b)
+
+var fruits = ["apple", "banana", "cherry"]
+append(fruits, "mango")
+print("Fruits:", fruits)
+print("First fruit:", fruits[0])
+print("How many:", len(fruits))
+
+for i = 0 to len(fruits) {
+    print(i, fruits[i])
+}
+
+var count = 3
+while count > 0 {
+    print("Countdown:", count)
+    count = count - 1
+}
+print("Lift off!")
+
+if a > 5 and not (b == 0) {
+    print("a is big")
+} elif a > 2 {
+    print("a is medium")
+} else {
+    print("a is small")
+}

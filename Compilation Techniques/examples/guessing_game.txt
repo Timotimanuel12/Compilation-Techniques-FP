@@ -1,0 +1,20 @@
+# A number guessing game
+
+var secret = random(1, 100)
+var tries = 0
+var guess = 0
+
+print("I'm thinking of a number between 1 and 100.")
+
+while guess != secret {
+    guess = int(input("Your guess: "))
+    tries = tries + 1
+
+    if guess < secret {
+        print("Too low!")
+    } elif guess > secret {
+        print("Too high!")
+    }
+}
+
+print("Correct! You got it in", tries, "tries.")

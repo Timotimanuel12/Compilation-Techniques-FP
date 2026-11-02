@@ -1,0 +1,42 @@
+# Functions and recursion
+
+func greet(person) {
+    return "Hi " + person
+}
+print(greet("Sam"))
+
+# A function that calls itself (recursion)
+func factorial(n) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+print("5! =", factorial(5))
+
+func fib(n) {
+    if n < 2 {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+var numbers = []
+for i = 0 to 10 {
+    append(numbers, fib(i))
+}
+print("Fibonacci:", numbers)
+
+# Functions are values too, so they can be passed to other functions
+func double(x) {
+    return x * 2
+}
+
+func apply_to_all(f, items) {
+    var result = []
+    for i = 0 to len(items) {
+        append(result, f(items[i]))
+    }
+    return result
+}
+print("Doubled:", apply_to_all(double, [1, 2, 3]))
