@@ -203,7 +203,7 @@ When something is wrong, you get a message with the line number. There are three
 - [ ] Interpreter, built in parts:
   - [x] Part 1: maths (`+ - * / % **`, negative numbers)
   - [x] Part 2: variables
-  - [ ] Part 3: text, true/false/null, lists, comparisons, `and` / `or` / `not`
+  - [x] Part 3: text, true/false/null, lists, comparisons, `and` / `or` / `not`
   - [ ] Part 4: `if`, `while`, `for`
   - [ ] Part 5: functions and built-in functions (`print`, `input`, ...)
 - [ ] Example programs running

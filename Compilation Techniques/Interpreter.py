@@ -10,6 +10,7 @@
 #  Built so far:
 #    - Part 1: numbers and maths ( + - * / % ** and negative numbers )
 #    - Part 2: variables and scopes ( var x = 10, x = 20 )
+#    - Part 3: strings, booleans, null, lists, indexing, comparisons, and/or/not
 # ══════════════════════════════════════════════════════════════════════════════
 
 from Lexer import *
@@ -81,6 +82,10 @@ class Interpreter:
             raise RTError(node, f'{type(node).__name__} is not supported yet')
         return method(node)
 
+    def is_truthy(self, value):
+        """false, null, 0, "" and [] count as false; everything else is true."""
+        return bool(value)
+
     # ── Statements in a row ───────────────────────────────────────────────────
 
     def visit_BlockNode(self, node):
@@ -91,12 +96,24 @@ class Interpreter:
             result = self.visit(statement)
         return result
 
-    # ── Values ────────────────────────────────────────────────────────────────
+    # ── Values (Part 1 & Part 3) ──────────────────────────────────────────────
 
     def visit_NumberNode(self, node):
         # The lexer already turned the text "42" into the Python number 42,
         # so we just hand it back.
         return node.tok.value
+
+    def visit_StringNode(self, node):
+        return node.tok.value
+
+    def visit_BoolNode(self, node):
+        return node.tok.value == 'true'
+
+    def visit_NullNode(self, node):
+        return None
+
+    def visit_ListNode(self, node):
+        return [self.visit(element) for element in node.element_nodes]
 
     # ── Variables (Part 2) ────────────────────────────────────────────────────
 
@@ -119,9 +136,31 @@ class Interpreter:
 
         return value
 
-    # ── Operators ─────────────────────────────────────────────────────────────
+    # ── Indexing (Part 3) ─────────────────────────────────────────────────────
+
+    def visit_IndexNode(self, node):
+        collection = self.visit(node.collection_node)
+        index      = self.visit(node.index_node)
+
+        if not isinstance(collection, (list, str)):
+            raise RTError(node, 'Only lists and strings can be indexed with [...]')
+        if type(index) is not int:
+            raise RTError(node.index_node, 'Index must be a whole number')
+
+        try:
+            return collection[index]
+        except IndexError:
+            raise RTError(node.index_node, f'Index {index} is out of range')
+
+    # ── Operators (Part 1 & Part 3) ───────────────────────────────────────────
 
     def visit_BinOpNode(self, node):
+        # Logical operators ('and' / 'or') are checked first so they can short-circuit
+        if node.op_tok.matches(TT_KEYWORD, 'and'):
+            return self.is_truthy(self.visit(node.left_node)) and self.is_truthy(self.visit(node.right_node))
+        if node.op_tok.matches(TT_KEYWORD, 'or'):
+            return self.is_truthy(self.visit(node.left_node)) or self.is_truthy(self.visit(node.right_node))
+
         # A BinOpNode has a left side, an operator and a right side, e.g. 2 * 3.
         # First work out both sides (they may be bigger trees themselves)...
         left  = self.visit(node.left_node)
@@ -134,22 +173,40 @@ class Interpreter:
         if op in (TT_DIV, TT_MOD) and right == 0:
             raise RTError(node, 'Division by zero')
 
-        if op == TT_PLUS:   return left + right
-        if op == TT_MINUS:  return left - right
-        if op == TT_MUL:    return left * right
-        if op == TT_DIV:    return left / right
-        if op == TT_MOD:    return left % right
-        if op == TT_POW:    return left ** right
+        try:
+            # Maths
+            if op == TT_PLUS:   return left + right
+            if op == TT_MINUS:  return left - right
+            if op == TT_MUL:    return left * right
+            if op == TT_DIV:    return left / right
+            if op == TT_MOD:    return left % right
+            if op == TT_POW:    return left ** right
+
+            # Comparisons
+            if op == TT_EQEQ:   return left == right
+            if op == TT_NEQ:    return left != right
+            if op == TT_LT:     return left < right
+            if op == TT_GT:     return left > right
+            if op == TT_LTE:    return left <= right
+            if op == TT_GTE:    return left >= right
+        except TypeError:
+            raise RTError(node, f'Cannot use {node.op_tok} on {type(left).__name__} and {type(right).__name__}')
 
         raise RTError(node, f'The operator {op} is not supported yet')
 
     def visit_UnaryOpNode(self, node):
-        # A UnaryOpNode is an operator with only ONE side, e.g. -5
+        # A UnaryOpNode is an operator with only ONE side, e.g. -5 or not true
         value = self.visit(node.node)
 
+        if node.op_tok.matches(TT_KEYWORD, 'not'):
+            return not self.is_truthy(value)
+
         op = node.op_tok.type
-        if op == TT_MINUS:  return -value
-        if op == TT_PLUS:   return value
+        try:
+            if op == TT_MINUS:  return -value
+            if op == TT_PLUS:   return +value
+        except TypeError:
+            raise RTError(node, f'Cannot use {node.op_tok} on {type(value).__name__}')
 
         raise RTError(node, f'The operator {node.op_tok} is not supported yet')
 
@@ -159,11 +216,9 @@ if __name__ == '__main__':
     interpreter = Interpreter()
     tests = [
         # Part 1: maths
-        '1 + 2',
         '1 + 2 * 3',
         '(1 + 2) * 3',
         '10 / 4',
-        '10 % 3',
         '2 ** 10',
         '-5 + 2',
         '1 / 0',
@@ -172,10 +227,17 @@ if __name__ == '__main__':
         'x = x + 5',
         'x * 2',
         'y = 1',
+        # Part 3: strings, booleans, null, lists, comparisons, logic
+        '"Hello, " + "World!"',
+        'var items = [10, 20, 30]',
+        'items[0] + items[-1]',
+        'x == 15 and not false',
+        'x < 5 or x >= 15',
+        'not null',
     ]
     for code in tests:
         result, error = interpreter.run('<test>', code + '\n')
         if error:
-            print(f'{code:<16} =  {error.error_name}: {error.details}')
+            print(f'{code:<24} =  {error.error_name}: {error.details}')
         else:
-            print(f'{code:<16} =  {result}')
+            print(f'{code:<24} =  {result}')
