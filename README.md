@@ -9,10 +9,6 @@ The project has three parts:
 2. The **Parser** understands the structure of the code and builds a tree from it.
 3. The **Interpreter** walks through the tree and runs the program.
 
-> **Work in progress:** the lexer and parser are finished. The interpreter is being built step by step,
-> and so far it can only do **maths** (`1 + 2 * 3`, `10 / 4`, `-5`, `2 ** 10`).
-> The rest of this README describes the language as it will be when the interpreter is finished.
-
 
 ## What the language looks like
 
@@ -131,8 +127,8 @@ All the code is in the `Compilation Techniques` folder.
 | `Lexer.py` | Turns text into tokens. Also has the `Error` and `Position` classes. |
 | `Parser.py` | Turns tokens into a tree. |
 | `Nodes.py` | The pieces of the tree (`NumberNode`, `IfNode`, `BlockNode`, ...). |
-| `Interpreter.py` | Runs the tree. *(In progress: maths only so far.)* |
-| `examples/` | Example programs: `basics.txt`, `functions.txt`, `guessing_game.txt`. *(They will run once the interpreter is finished.)* |
+| `Interpreter.py` | Runs the tree. |
+| `examples/` | Example programs: `basics.txt`, `functions.txt`, `guessing_game.txt`. |
 | `LL1_Grammar.txt` | The grammar of the language, written as an LL(1) context-free grammar. The parser follows this file. |
 | `EBNF_Grammar.txt` | An earlier version of the grammar in EBNF form. It does not yet match `LL1_Grammar.txt` exactly. |
 
@@ -148,7 +144,7 @@ cd "Compilation Techniques"
 python main.py examples/basics.txt
 ```
 
-*(The example programs need the finished interpreter. Once it is done, this prints:)*
+This prints:
 
 ```
 Hello, World!
@@ -168,16 +164,6 @@ python Interpreter.py
 ```
 python main.py
 ```
-
-Right now the shell works as a calculator:
-
-```
->>> 1 + 2 * 3
-7
->>> exit
-```
-
-When the interpreter is finished, it will run everything:
 
 ```
 >>> var x = 5
@@ -216,7 +202,7 @@ When something is wrong, you get a message with the line number. There are three
 - [x] Interactive shell (`main.py`)
 - [ ] Interpreter, built in parts:
   - [x] Part 1: maths (`+ - * / % **`, negative numbers)
-  - [ ] Part 2: variables
+  - [x] Part 2: variables
   - [ ] Part 3: text, true/false/null, lists, comparisons, `and` / `or` / `not`
   - [ ] Part 4: `if`, `while`, `for`
   - [ ] Part 5: functions and built-in functions (`print`, `input`, ...)

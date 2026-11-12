@@ -7,7 +7,9 @@
 #  There is ONE function for each kind of node, named visit_<NodeName>.
 #  For example, a NumberNode is handled by visit_NumberNode.
 #
-#  Built so far:  numbers and maths  ( + - * / % **  and negative numbers )
+#  Built so far:
+#    - Part 1: numbers and maths ( + - * / % ** and negative numbers )
+#    - Part 2: variables and scopes ( var x = 10, x = 20 )
 # ══════════════════════════════════════════════════════════════════════════════
 
 from Lexer import *
@@ -21,7 +23,38 @@ class RTError(Error):
         super().__init__(node.pos_start, node.pos_end, 'Runtime Error', details)
 
 
+class Scope:
+    """Stores variables in a dictionary. Inner scopes can look up outer ones."""
+    def __init__(self, parent=None):
+        self.values = {}
+        self.parent = parent
+
+    def define(self, name, value):
+        """Create a new variable in this scope (var x = ...)."""
+        self.values[name] = value
+
+    def get(self, name):
+        """Read a variable, checking outer scopes if needed."""
+        if name in self.values:
+            return True, self.values[name]
+        if self.parent:
+            return self.parent.get(name)
+        return False, None
+
+    def set(self, name, value):
+        """Update an existing variable, checking outer scopes if needed."""
+        if name in self.values:
+            self.values[name] = value
+            return True
+        if self.parent:
+            return self.parent.set(name, value)
+        return False
+
+
 class Interpreter:
+    def __init__(self):
+        self.scope = Scope()            # global scope for the whole program
+
     def run(self, fn, text):
         """Source code → Lexer → Parser → Interpreter. Returns (result, error)."""
         # 1. Lexer: text → tokens
@@ -65,6 +98,27 @@ class Interpreter:
         # so we just hand it back.
         return node.tok.value
 
+    # ── Variables (Part 2) ────────────────────────────────────────────────────
+
+    def visit_VarAccessNode(self, node):
+        name = node.var_name_tok.value
+        found, value = self.scope.get(name)
+        if not found:
+            raise RTError(node, f"'{name}' is not defined")
+        return value
+
+    def visit_VarAssignNode(self, node):
+        name  = node.var_name_tok.value
+        value = self.visit(node.value_node)
+
+        if node.is_declaration:         # var x = 10
+            self.scope.define(name, value)
+        else:                           # x = 20
+            if not self.scope.set(name, value):
+                raise RTError(node, f"'{name}' is not defined (use 'var {name} = ...' first)")
+
+        return value
+
     # ── Operators ─────────────────────────────────────────────────────────────
 
     def visit_BinOpNode(self, node):
@@ -102,7 +156,9 @@ class Interpreter:
 
 # Run this file directly (python Interpreter.py) to test what is built so far
 if __name__ == '__main__':
+    interpreter = Interpreter()
     tests = [
+        # Part 1: maths
         '1 + 2',
         '1 + 2 * 3',
         '(1 + 2) * 3',
@@ -111,11 +167,15 @@ if __name__ == '__main__':
         '2 ** 10',
         '-5 + 2',
         '1 / 0',
-        'x + 1',
+        # Part 2: variables
+        'var x = 10',
+        'x = x + 5',
+        'x * 2',
+        'y = 1',
     ]
     for code in tests:
-        result, error = Interpreter().run('<test>', code + '\n')
+        result, error = interpreter.run('<test>', code + '\n')
         if error:
-            print(f'{code:<12} =  {error.error_name}: {error.details}')
+            print(f'{code:<16} =  {error.error_name}: {error.details}')
         else:
-            print(f'{code:<12} =  {result}')
+            print(f'{code:<16} =  {result}')
