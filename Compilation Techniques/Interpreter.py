@@ -11,6 +11,7 @@
 #    - Part 1: numbers and maths ( + - * / % ** and negative numbers )
 #    - Part 2: variables and scopes ( var x = 10, x = 20 )
 #    - Part 3: strings, booleans, null, lists, indexing, comparisons, and/or/not
+#    - Part 4: control flow ( if / elif / else, while, for )
 # ══════════════════════════════════════════════════════════════════════════════
 
 from Lexer import *
@@ -210,6 +211,43 @@ class Interpreter:
 
         raise RTError(node, f'The operator {node.op_tok} is not supported yet')
 
+    # ── Control flow (Part 4) ─────────────────────────────────────────────────
+
+    def visit_IfNode(self, node):
+        # Check each if / elif condition in order; run the first block that is true
+        for condition_node, body_node in node.cases:
+            if self.is_truthy(self.visit(condition_node)):
+                self.visit(body_node)
+                return None
+
+        if node.else_case is not None:
+            self.visit(node.else_case)
+        return None
+
+    def visit_WhileNode(self, node):
+        while self.is_truthy(self.visit(node.condition_node)):
+            self.visit(node.body_node)
+        return None
+
+    def visit_ForNode(self, node):
+        # for i = start to end step s { ... }  (end is not included, like range())
+        start = self.visit(node.start_node)
+        end   = self.visit(node.end_node)
+        step  = self.visit(node.step_node) if node.step_node else 1
+
+        if not isinstance(start, (int, float)) or not isinstance(end, (int, float)) or not isinstance(step, (int, float)):
+            raise RTError(node, 'For loop start, end and step must be numbers')
+        if step == 0:
+            raise RTError(node.step_node, 'For loop step cannot be zero')
+
+        var_name = node.var_name_tok.value
+        i = start
+        while (i < end) if step > 0 else (i > end):
+            self.scope.define(var_name, i)
+            self.visit(node.body_node)
+            i += step
+        return None
+
 
 # Run this file directly (python Interpreter.py) to test what is built so far
 if __name__ == '__main__':
@@ -234,10 +272,13 @@ if __name__ == '__main__':
         'x == 15 and not false',
         'x < 5 or x >= 15',
         'not null',
+        # Part 4: control flow
+        'var sum = 0\nfor i = 1 to 5 {\n    sum = sum + i\n}\nsum',
     ]
     for code in tests:
+        label = code.replace('\n', ' ')
         result, error = interpreter.run('<test>', code + '\n')
         if error:
-            print(f'{code:<24} =  {error.error_name}: {error.details}')
+            print(f'{label:<34} =  {error.error_name}: {error.details}')
         else:
-            print(f'{code:<24} =  {result}')
+            print(f'{label:<34} =  {result}')
