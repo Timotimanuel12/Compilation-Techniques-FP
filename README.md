@@ -200,11 +200,11 @@ When something is wrong, you get a message with the line number. There are three
 - [x] Lexer
 - [x] Parser
 - [x] Interactive shell (`main.py`)
-- [ ] Interpreter, built in parts:
+- [x] Interpreter, built in parts:
   - [x] Part 1: maths (`+ - * / % **`, negative numbers)
   - [x] Part 2: variables
   - [x] Part 3: text, true/false/null, lists, comparisons, `and` / `or` / `not`
   - [x] Part 4: `if`, `while`, `for`
-  - [ ] Part 5: functions and built-in functions (`print`, `input`, ...)
-- [ ] Example programs running
+  - [x] Part 5: functions and built-in functions (`print`, `input`, ...)
+- [x] Example programs running
 - [ ] Code editor window (`tkinter`) for the demo

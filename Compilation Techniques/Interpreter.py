@@ -7,12 +7,15 @@
 #  There is ONE function for each kind of node, named visit_<NodeName>.
 #  For example, a NumberNode is handled by visit_NumberNode.
 #
-#  Built so far:
+#  Built in 5 parts:
 #    - Part 1: numbers and maths ( + - * / % ** and negative numbers )
 #    - Part 2: variables and scopes ( var x = 10, x = 20 )
 #    - Part 3: strings, booleans, null, lists, indexing, comparisons, and/or/not
 #    - Part 4: control flow ( if / elif / else, while, for )
+#    - Part 5: functions and built-in functions ( func, return, print, ... )
 # ══════════════════════════════════════════════════════════════════════════════
+
+import random
 
 from Lexer import *
 from Nodes import *
@@ -23,6 +26,13 @@ class RTError(Error):
     """An error that happens while the program is running, e.g. 1 / 0."""
     def __init__(self, node, details):
         super().__init__(node.pos_start, node.pos_end, 'Runtime Error', details)
+
+
+class ReturnSignal(Exception):
+    """Used internally to jump out of a function when 'return' is reached."""
+    def __init__(self, value, node):
+        self.value = value
+        self.node  = node
 
 
 class Scope:
@@ -53,9 +63,47 @@ class Scope:
         return False
 
 
+class Function:
+    """A user-defined function created with 'func name(params) { ... }'."""
+    def __init__(self, name, param_names, body_node, defining_scope):
+        self.name           = name
+        self.param_names    = param_names
+        self.body_node      = body_node
+        self.defining_scope = defining_scope
+
+    def __repr__(self):
+        return f'<function {self.name}>'
+
+
+class BuiltInFunction:
+    """A built-in function provided by the language, e.g. print() or len()."""
+    def __init__(self, name, fn):
+        self.name = name
+        self.fn   = fn
+
+    def __repr__(self):
+        return f'<built-in function {self.name}>'
+
+
 class Interpreter:
     def __init__(self):
         self.scope = Scope()            # global scope for the whole program
+        self._register_builtins()
+
+    def _register_builtins(self):
+        """Add the built-in functions to the global scope."""
+        builtins = {
+            'print':  self._builtin_print,
+            'input':  self._builtin_input,
+            'len':    self._builtin_len,
+            'str':    self._builtin_str,
+            'int':    self._builtin_int,
+            'float':  self._builtin_float,
+            'append': self._builtin_append,
+            'random': self._builtin_random,
+        }
+        for name, fn in builtins.items():
+            self.scope.define(name, BuiltInFunction(name, fn))
 
     def run(self, fn, text):
         """Source code → Lexer → Parser → Interpreter. Returns (result, error)."""
@@ -71,6 +119,8 @@ class Interpreter:
             # 3. Interpreter: tree → result
             result = self.visit(tree)
             return result, None
+        except ReturnSignal as ret:
+            return None, RTError(ret.node, "'return' cannot be used outside a function")
         except Error as error:          # a syntax error or a runtime error
             return None, error
 
@@ -248,6 +298,108 @@ class Interpreter:
             i += step
         return None
 
+    # ── Functions (Part 5) ────────────────────────────────────────────────────
+
+    def visit_FuncDefNode(self, node):
+        name        = node.func_name_tok.value
+        param_names = [param.value for param in node.param_toks]
+        func        = Function(name, param_names, node.body_node, self.scope)
+        self.scope.define(name, func)
+        return None
+
+    def visit_ReturnNode(self, node):
+        value = self.visit(node.return_node) if node.return_node is not None else None
+        raise ReturnSignal(value, node)
+
+    def visit_CallNode(self, node):
+        callee = self.visit(node.callee_node)
+        args   = [self.visit(arg) for arg in node.arg_nodes]
+
+        # 1. Built-in function (print, len, append, ...)
+        if isinstance(callee, BuiltInFunction):
+            return callee.fn(node, args)
+
+        # 2. User-defined function (func name(...) { ... })
+        if isinstance(callee, Function):
+            if len(args) != len(callee.param_names):
+                raise RTError(
+                    node,
+                    f"'{callee.name}' expects {len(callee.param_names)} argument(s), but got {len(args)}"
+                )
+
+            # Create a fresh local scope for this call, linked to where the function was defined
+            call_scope = Scope(parent=callee.defining_scope)
+            for param_name, arg_value in zip(callee.param_names, args):
+                call_scope.define(param_name, arg_value)
+
+            previous_scope = self.scope
+            self.scope = call_scope
+            try:
+                self.visit(callee.body_node)
+                return None
+            except ReturnSignal as ret:
+                return ret.value
+            finally:
+                self.scope = previous_scope
+
+        raise RTError(node, f"'{callee}' is not a function")
+
+    # ── Built-in functions (Part 5) ───────────────────────────────────────────
+
+    def _expect_arg_count(self, node, name, args, expected):
+        if len(args) != expected:
+            raise RTError(node, f"'{name}' expects {expected} argument(s), but got {len(args)}")
+
+    def _builtin_print(self, node, args):
+        print(*args)
+        return None
+
+    def _builtin_input(self, node, args):
+        if len(args) > 1:
+            raise RTError(node, f"'input' expects at most 1 argument, but got {len(args)}")
+        prompt = str(args[0]) if args else ''
+        return input(prompt)
+
+    def _builtin_len(self, node, args):
+        self._expect_arg_count(node, 'len', args, 1)
+        if not isinstance(args[0], (list, str)):
+            raise RTError(node, "'len' only works on lists and strings")
+        return len(args[0])
+
+    def _builtin_str(self, node, args):
+        self._expect_arg_count(node, 'str', args, 1)
+        return str(args[0])
+
+    def _builtin_int(self, node, args):
+        self._expect_arg_count(node, 'int', args, 1)
+        try:
+            return int(args[0])
+        except (ValueError, TypeError):
+            raise RTError(node, f"Cannot convert '{args[0]}' to an integer")
+
+    def _builtin_float(self, node, args):
+        self._expect_arg_count(node, 'float', args, 1)
+        try:
+            return float(args[0])
+        except (ValueError, TypeError):
+            raise RTError(node, f"Cannot convert '{args[0]}' to a float")
+
+    def _builtin_append(self, node, args):
+        self._expect_arg_count(node, 'append', args, 2)
+        if not isinstance(args[0], list):
+            raise RTError(node, "First argument to 'append' must be a list")
+        args[0].append(args[1])
+        return None
+
+    def _builtin_random(self, node, args):
+        self._expect_arg_count(node, 'random', args, 2)
+        a, b = args
+        if type(a) is not int or type(b) is not int:
+            raise RTError(node, "'random' expects two whole numbers")
+        if a > b:
+            raise RTError(node, "'random(a, b)' requires a <= b")
+        return random.randint(a, b)
+
 
 # Run this file directly (python Interpreter.py) to test what is built so far
 if __name__ == '__main__':
@@ -272,8 +424,11 @@ if __name__ == '__main__':
         'x == 15 and not false',
         'x < 5 or x >= 15',
         'not null',
-        # Part 4: control flow
-        'var sum = 0\nfor i = 1 to 5 {\n    sum = sum + i\n}\nsum',
+        # Part 4 & 5: control flow, functions & built-ins
+        'append(items, 40)',
+        'len(items)',
+        'func square(n) {\n    return n * n\n}',
+        'square(6)',
     ]
     for code in tests:
         label = code.replace('\n', ' ')
